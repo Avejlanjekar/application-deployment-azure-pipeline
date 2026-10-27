@@ -1,0 +1,145 @@
+
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+  - name: Environment
+    displayName: Select environment for deployment
+    type: string
+    default: dev
+    values:
+      - dev
+      - qa
+      - uat
+      - prod
+
+  - name: imageTag
+    displayName: Image tag to promote
+    type: string
+    default: ""
+
+variables:
+  buildContext: './frontend'
+  dockerHubUsername: 'avejlanjekar45'
+
+stages:
+  - stage: BuildAndPushDev
+    displayName: 'Dev - Build and push Frontend image'
+    condition: eq('${{ parameters.Environment }}','dev')
+    jobs:
+      - job: BuildFrontend
+        displayName: 'Build frontend docker image'
+        steps:
+          - checkout: self
+          - task: Docker@2
+            displayName: 'Build And Push Frontend Image'
+            inputs:
+              containerRegistry: 'dockerhub-service-connection'
+              repository: 'avejlanjekar45/employee-management-frontend-dev'
+              command: 'buildAndPush'
+              Dockerfile: '$(buildContext)/Dockerfile'
+              buildContext: '$(buildContext)'
+              tags: |
+                $(Build.SourceVersion)
+
+  - stage: PromoteDevToQA
+    displayName: 'QA - Promote frontend image'
+    dependsOn: []
+    condition: eq('${{ parameters.Environment }}','qa')
+    jobs:
+      - job: PromoteFrontend
+        displayName: 'promote DEV image to QA'
+        steps:
+          - checkout: none
+          - task: Docker@2
+            displayName: 'Login to Docker Hub'
+            inputs:
+              command: 'login'
+              containerRegistry: 'dockerhub-service-connection'
+          - script: |
+              set -e
+
+              if [ -z "${{ parameters.imageTag }}" ]; then
+                echo "ERROR: imageTag is required for QA promotion"
+                exit 1
+              fi
+
+              docker pull $(dockerHubUsername)/employee-management-frontend-dev:${{ parameters.imageTag }}
+              docker tag $(dockerHubUsername)/employee-management-frontend-dev:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-frontend-qa:${{ parameters.imageTag }}
+              docker push $(dockerHubUsername)/employee-management-frontend-qa:${{ parameters.imageTag }}
+            displayName: 'promote dev image to qa'
+
+  - stage: PromoteQAToUAT
+    displayName: 'Uat - promote frontend image'
+    dependsOn: []
+    condition: eq('${{ parameters.Environment }}','uat')
+    jobs:
+      - job: PromoteFrontend
+        displayName: 'Uat - promote frontend image'
+        steps:
+          - checkout: none
+          - task: Docker@2
+            displayName: 'Login to Docker Hub'
+            inputs:
+              command: 'login'
+              containerRegistry: 'dockerhub-service-connection'
+          - script: |
+              set -e 
+
+              if [ -z "${{ parameters.imageTag }}" ]; then
+                echo "ERROR: imageTag is required for UAT promotion"
+                exit 1
+              fi
+
+              docker pull $(dockerHubUsername)/employee-management-frontend-qa:${{ parameters.imageTag }}
+              docker tag $(dockerHubUsername)/employee-management-frontend-qa:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-frontend-uat:${{ parameters.imageTag }}
+              docker push $(dockerHubUsername)/employee-management-frontend-uat:${{ parameters.imageTag }}
+            displayName: ' Promote qa image to uat '
+
+  - stage: ApproveProduction
+    displayName: 'Production - Manual Approval'
+    dependsOn: []
+    condition: eq('${{ parameters.Environment }}', 'prod')
+    jobs:
+      - job: WaitForApproval
+        displayName: 'Approve Production promotion'
+        pool: server
+        timeoutInMinutes: 1440
+        steps:
+          - task: ManualValidation@1
+            timeoutInMinutes: 1440
+            inputs:
+              notifyUsers: ""
+              approvers: ""
+              allowApproversToApproveTheirOwnRuns: true
+              instructions: 'Review the UAT frontend image and approve promotion to production.'
+              onTimeout: reject
+
+  - stage: PromoteUatToProd
+    displayName: 'Prod - promote frontend image'
+    dependsOn: ApproveProduction
+    condition: and(succeeded(),eq('${{ parameters.Environment }}', 'prod'))
+    jobs:
+      - job: PromoteFrontend
+        displayName: 'Prod - promote frontend image'
+        steps:
+          - checkout: none
+          - task: Docker@2
+            displayName: 'Login to Docker hub'
+            inputs:
+              command: 'login'
+              containerRegistry: 'dockerhub-service-connection'
+          - script: |
+              set -e
+
+              if [ -z "${{ parameters.imageTag }}" ]; then
+                echo "ERROR: imageTag is required for production promotion"
+                exit 1
+              fi
+
+              docker pull $(dockerHubUsername)/employee-management-frontend-uat:${{ parameters.imageTag }}
+              docker tag $(dockerHubUsername)/employee-management-frontend-uat:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-frontend-prod:${{ parameters.imageTag }}
+              docker push $(dockerHubUsername)/employee-management-frontend-prod:${{ parameters.imageTag }}
+            displayName: 'promote uat to prod'

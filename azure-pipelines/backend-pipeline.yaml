@@ -1,0 +1,145 @@
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+  - name: Environment
+    type: string
+    default: dev
+    displayName: Select environment for deployment
+    values:
+      - dev
+      - qa
+      - uat
+      - prod
+
+  - name: imageTag
+    type: string
+    default: ""
+    displayName: Image tag to promote
+
+variables:
+  buildContext: './backend'
+  dockerHubUsername: 'avejlanjekar45'
+
+stages:
+  
+  - stage: BuildAndPushDev
+    displayName: 'Dev - Build and push backend image'
+    condition: eq('${{ parameters.Environment }}','dev')
+    jobs:
+      - job: BuildBackend
+        displayName: Dev - Build and push backend image
+        steps:
+          - checkout: self
+
+          - task: Docker@2
+            displayName: 'Build And push Backend image'
+            inputs:
+              containerRegistry: 'dockerhub-service-connection'
+              repository: 'avejlanjekar45/employee-management-backend-dev'
+              command: buildAndPush
+              Dockerfile: '$(buildContext)/Dockerfile'
+              buildContext: '$(buildContext)'
+              tags: |
+                $(Build.SourceVersion)
+
+  - stage: Promote_Dev_To_QA
+    displayName: 'QA - Promote backend image'
+    dependsOn: []
+    condition: eq('${{ parameters.Environment }}','qa')
+    jobs:
+      - job: PromoteBackend
+        displayName: 'QA - Promote backend image'
+        steps:
+          - checkout: none
+          - task: Docker@2
+            displayName: 'Login to docker hub'
+            inputs:
+              command: 'login'
+              containerRegistry: 'dockerhub-service-connection'
+          - script: |
+              set -e
+
+              if [ -z "${{ parameters.imageTag }}" ]; then
+                echo "ERROR, imageTag is required"
+                exit 1
+              fi
+
+              docker pull $(dockerHubUsername)/employee-management-backend-dev:${{ parameters.imageTag }}
+              docker tag $(dockerHubUsername)/employee-management-backend-dev:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-backend-qa:${{ parameters.imageTag }}
+              docker push $(dockerHubUsername)/employee-management-backend-qa:${{ parameters.imageTag }}
+            displayName: ' PRomote Dev image to QA'
+
+  - stage: PromoteQAtoUAT
+    displayName: 'UAT- promote backend image'
+    condition: eq("${{ parameters.Environment }}", "uat")
+    jobs:
+      - job: PromoteBackend
+        displayName: 'UAT- promote backend image'
+        steps:
+          - checkout: none
+          - task: Docker@2
+            displayName: 'login to docker hub'
+            inputs:
+              command: 'login'
+              containerRegistry: 'dockerhub-service-connection'
+          - script: |
+              set -e 
+
+              if [ -z "${{ parameters.imageTag }}" ]; then
+                echo "ERROR, imageTag is required"
+                exit 1
+              fi
+
+              docker pull $(dockerHubUsername)/employee-management-backend-qa:${{ parameters.imageTag }}
+              docker tag $(dockerHubUsername)/employee-management-backend-qa:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-backend-uat:${{ parameters.imageTag }}
+              docker push $(dockerHubUsername)/employee-management-backend-uat:${{ parameters.imageTag }}
+            displayName: 'Promote QA to UAT'
+
+  - stage: ApproveProduction
+    displayName: 'Production - Manual Approval'
+    dependsOn: []
+    condition: eq('${{ parameters.Environment }}', 'prod')
+    jobs:
+      - job: WaitForApproval
+        displayName: 'Approve Production promotion'
+        pool: server
+        timeoutInMinutes: 1440
+        steps:
+          - task: ManualValidation@1
+            timeoutInMinutes: 1440
+            inputs:
+              notifyUsers: ""
+              approvers: ""
+              allowApproversToApproveTheirOwnRuns: true
+              instructions: 'Review the UAT backend image and approve promotion to production.'
+              onTimeout: reject
+
+  - stage: PromoteUatToProd
+    displayName: 'Prod - promote backend image'
+    dependsOn: ApproveProduction
+    condition: eq("${{ parameters.Environment }}", "prod")
+    jobs:
+      - job: PromoteBackend
+        displayName: 'Prod - promote backend image'
+        steps:
+          - checkout: none
+          - task: Docker@2
+            displayName: 'login to docker hub'
+            inputs:
+              command: 'login'
+              containerRegistry: 'dockerhub-service-connection'
+          - script: |
+              set -e 
+
+              if [ -z "${{ parameters.imageTag }}" ]; then
+                echo "ERROR, imageTag is required"
+                exit 1
+              fi
+
+              docker pull $(dockerHubUsername)/employee-management-backend-uat:${{ parameters.imageTag }}
+              docker tag $(dockerHubUsername)/employee-management-backend-uat:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-backend-prod:${{ parameters.imageTag }}
+              docker push $(dockerHubUsername)/employee-management-backend-prod:${{ parameters.imageTag }}
+            displayName: 'Promote - Prod backend image'

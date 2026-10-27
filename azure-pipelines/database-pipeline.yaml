@@ -15,10 +15,10 @@ parameters:
       - uat
       - prod
   
-  - name: imageTag
-    type: string
-    displayName: select Tag to promote
-    default: ""
+  # - name: imageTag
+  #   type: string
+  #   displayName: select Tag to promote
+  #   default: ""
 
 variables:
   buildContext: './db'

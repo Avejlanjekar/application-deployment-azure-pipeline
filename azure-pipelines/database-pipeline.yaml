@@ -26,6 +26,21 @@ variables:
 
 
 stages:
+  - stage: Test_AWS_Connection
+    displayName: 'Test AWS Connection'
+    dependsOn: []
+    jobs:
+      - job: VerifyAWS
+        displayName: 'Verify AWS Authentication'
+        steps:
+          - task: AWSCLI@1
+            displayName: 'Check AWS Identity'
+            inputs:
+              awsCredentials: 'aws-access'
+              regionName: 'ap-south-1'
+              awsCommand: 'sts'
+              awsSubCommand: 'get-caller-identity'
+              awsArguments: ''
 
   - stage: Build_And_Push_Dev
     displayName: 'Build and push database docker image to dev'

@@ -29,6 +29,7 @@ stages:
   - stage: Test_AWS_Connection
     displayName: 'Test AWS Connection'
     dependsOn: []
+    condition: always()
     jobs:
       - job: VerifyAWS
         displayName: 'Verify AWS Authentication'
@@ -42,121 +43,121 @@ stages:
               awsSubCommand: 'get-caller-identity'
               awsArguments: ''
 
-  - stage: Build_And_Push_Dev
-    displayName: 'Build and push database docker image to dev'
-    condition: eq('${{ parameters.Environment }}','dev')
-    jobs:
-      - job: Build_And_Push_Dev
-        displayName: 'Build and push database docker image to dev'
-        steps:
-          - checkout: self
-          - task: Docker@2
-            displayName: 'Build and push DB docker image'
-            inputs:
-              containerRegistry: 'dockerhub-service-connection'
-              repository: 'avejlanjekar45/employee-management-database-dev'
-              command: buildAndPush
-              Dockerfile: '$(buildContext)/Dockerfile'
-              buildContext: '$(buildContext)'
-              tags: |
-                $(Build.SourceVersion)
+  # - stage: Build_And_Push_Dev
+  #   displayName: 'Build and push database docker image to dev'
+  #   condition: eq('${{ parameters.Environment }}','dev')
+  #   jobs:
+  #     - job: Build_And_Push_Dev
+  #       displayName: 'Build and push database docker image to dev'
+  #       steps:
+  #         - checkout: self
+  #         - task: Docker@2
+  #           displayName: 'Build and push DB docker image'
+  #           inputs:
+  #             containerRegistry: 'dockerhub-service-connection'
+  #             repository: 'avejlanjekar45/employee-management-database-dev'
+  #             command: buildAndPush
+  #             Dockerfile: '$(buildContext)/Dockerfile'
+  #             buildContext: '$(buildContext)'
+  #             tags: |
+  #               $(Build.SourceVersion)
 
-  - stage: Promote_Dev_To_QA
-    displayName: 'QA - Promote database image'
-    dependsOn: []
-    condition: eq('${{ parameters.Environment }}', 'qa')
-    jobs:
-      - job: 'PromoteQA'
-        displayName: 'QA - Promote database image'
-        steps:
-          - checkout: none
-          - task: Docker@2
-            displayName: 'login to docker hub'
-            inputs:
-              command: 'login'
-              containerRegistry: 'dockerhub-service-connection'
-          - script: |
-              set -e
+  # - stage: Promote_Dev_To_QA
+  #   displayName: 'QA - Promote database image'
+  #   dependsOn: []
+  #   condition: eq('${{ parameters.Environment }}', 'qa')
+  #   jobs:
+  #     - job: 'PromoteQA'
+  #       displayName: 'QA - Promote database image'
+  #       steps:
+  #         - checkout: none
+  #         - task: Docker@2
+  #           displayName: 'login to docker hub'
+  #           inputs:
+  #             command: 'login'
+  #             containerRegistry: 'dockerhub-service-connection'
+  #         - script: |
+  #             set -e
 
-              if [ -z "${{ parameters.imageTag }}" ]; then
-                echo "ERROR: image tag is required for promotion"
-                exit 1
-              fi 
+  #             if [ -z "${{ parameters.imageTag }}" ]; then
+  #               echo "ERROR: image tag is required for promotion"
+  #               exit 1
+  #             fi 
 
-              docker pull $(dockerHubUsername)/employee-management-database-dev:${{ parameters.imageTag }}
-              docker tag $(dockerHubUsername)/employee-management-database-dev:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-database-qa:${{ parameters.imageTag }}
-              docker push $(dockerHubUsername)/employee-management-database-qa:${{ parameters.imageTag }}
-            displayName: "QA - Promote database image"
+  #             docker pull $(dockerHubUsername)/employee-management-database-dev:${{ parameters.imageTag }}
+  #             docker tag $(dockerHubUsername)/employee-management-database-dev:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-database-qa:${{ parameters.imageTag }}
+  #             docker push $(dockerHubUsername)/employee-management-database-qa:${{ parameters.imageTag }}
+  #           displayName: "QA - Promote database image"
 
-  - stage: Promote_QA_to_UAT
-    displayName: 'UAT - Promote database image'
-    dependsOn: []
-    condition: eq('${{ parameters.Environment }}','uat')
-    jobs:
-      - job: PromoteUAT
-        displayName: 'UAT - Promote database image'
-        steps:
-          - checkout: none
-          - task: Docker@2
-            displayName: 'login to docker hub'
-            inputs:
-              command: 'login'
-              containerRegistry: 'dockerhub-service-connection'
-          - script: |
-              set -e 
+  # - stage: Promote_QA_to_UAT
+  #   displayName: 'UAT - Promote database image'
+  #   dependsOn: []
+  #   condition: eq('${{ parameters.Environment }}','uat')
+  #   jobs:
+  #     - job: PromoteUAT
+  #       displayName: 'UAT - Promote database image'
+  #       steps:
+  #         - checkout: none
+  #         - task: Docker@2
+  #           displayName: 'login to docker hub'
+  #           inputs:
+  #             command: 'login'
+  #             containerRegistry: 'dockerhub-service-connection'
+  #         - script: |
+  #             set -e 
 
-              if [ -z "${{ parameters.imageTag }}" ]; then
-                echo "ERROR: image tag is required for promotion"
-                exit 1
-              fi 
+  #             if [ -z "${{ parameters.imageTag }}" ]; then
+  #               echo "ERROR: image tag is required for promotion"
+  #               exit 1
+  #             fi 
 
-              docker pull $(dockerHubUsername)/employee-management-database-qa:${{ parameters.imageTag }}
-              docker tag $(dockerHubUsername)/employee-management-database-qa:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-database-uat:${{ parameters.imageTag }}
-              docker push $(dockerHubUsername)/employee-management-database-uat:${{ parameters.imageTag }}
-            displayName: 'UAT - Promote database image'
+  #             docker pull $(dockerHubUsername)/employee-management-database-qa:${{ parameters.imageTag }}
+  #             docker tag $(dockerHubUsername)/employee-management-database-qa:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-database-uat:${{ parameters.imageTag }}
+  #             docker push $(dockerHubUsername)/employee-management-database-uat:${{ parameters.imageTag }}
+  #           displayName: 'UAT - Promote database image'
 
-  - stage: Approve_Production
-    displayName: 'Production - Manual Approval'
-    dependsOn: []
-    condition: eq('${{ parameters.Environment }}', 'prod')
-    jobs:
-      - job: WaitForApproval
-        displayName: 'Approve Production promotion'
-        pool: server
-        timeoutInMinutes: 1440
-        steps:
-          - task: ManualValidation@1
-            timeoutInMinutes: 1440
-            inputs:
-              notifyUsers: ""
-              approvers: ""
-              allowApproversToApproveTheirOwnRuns: false
-              instructions: 'Review the UAT database image and approve promotion to production.'
-              onTimeout: reject
+  # - stage: Approve_Production
+  #   displayName: 'Production - Manual Approval'
+  #   dependsOn: []
+  #   condition: eq('${{ parameters.Environment }}', 'prod')
+  #   jobs:
+  #     - job: WaitForApproval
+  #       displayName: 'Approve Production promotion'
+  #       pool: server
+  #       timeoutInMinutes: 1440
+  #       steps:
+  #         - task: ManualValidation@1
+  #           timeoutInMinutes: 1440
+  #           inputs:
+  #             notifyUsers: ""
+  #             approvers: ""
+  #             allowApproversToApproveTheirOwnRuns: false
+  #             instructions: 'Review the UAT database image and approve promotion to production.'
+  #             onTimeout: reject
 
-  - stage: Promote_UAT_to_PROD
-    displayName: 'promote uat to prod'
-    dependsOn: [Approve_Production]
-    condition: and(succeeded(),eq('${{ parameters.Environment }}','prod'))
-    jobs:
-      - job: PromotePROD
-        displayName: 'promote uat to prod'
-        steps:
-          - checkout: none 
-          - task: Docker@2
-            displayName: 'login to docker hub'
-            inputs:
-              command: 'login'
-              containerRegistry: 'dockerhub-service-connection'
-          - script: |
-              set -e 
+  # - stage: Promote_UAT_to_PROD
+  #   displayName: 'promote uat to prod'
+  #   dependsOn: [Approve_Production]
+  #   condition: and(succeeded(),eq('${{ parameters.Environment }}','prod'))
+  #   jobs:
+  #     - job: PromotePROD
+  #       displayName: 'promote uat to prod'
+  #       steps:
+  #         - checkout: none 
+  #         - task: Docker@2
+  #           displayName: 'login to docker hub'
+  #           inputs:
+  #             command: 'login'
+  #             containerRegistry: 'dockerhub-service-connection'
+  #         - script: |
+  #             set -e 
 
-              if [ -z "${{ parameters.imageTag }}" ]; then
-                echo "ERROR: image tag is required for promotion"
-                exit 1
-              fi 
+  #             if [ -z "${{ parameters.imageTag }}" ]; then
+  #               echo "ERROR: image tag is required for promotion"
+  #               exit 1
+  #             fi 
 
-              docker pull $(dockerHubUsername)/employee-management-database-uat:${{ parameters.imageTag }}
-              docker tag $(dockerHubUsername)/employee-management-database-uat:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-database-prod:${{ parameters.imageTag }}
-              docker push $(dockerHubUsername)/employee-management-database-prod:${{ parameters.imageTag }}
-            displayName: 'promote uat to prod'
+  #             docker pull $(dockerHubUsername)/employee-management-database-uat:${{ parameters.imageTag }}
+  #             docker tag $(dockerHubUsername)/employee-management-database-uat:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-database-prod:${{ parameters.imageTag }}
+  #             docker push $(dockerHubUsername)/employee-management-database-prod:${{ parameters.imageTag }}
+  #           displayName: 'promote uat to prod'

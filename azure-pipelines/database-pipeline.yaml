@@ -47,7 +47,7 @@ stages:
 
   - stage: Deploy_Database_Dev
     displayName: 'Deploy Database to dev env'
-    condition: eq('${{ parameters.Environment }}', 'dev')
+    condition: eq('${{ parameters.Environment }}','dev')
     dependsOn: [Build_And_Push_Dev]
     jobs:
       - job: DeployDatabaseDev 
@@ -102,7 +102,7 @@ stages:
   - stage: Deploy_Database_QA
     displayName: 'Deploy Database to qa env'
     dependsOn: [Promote_Dev_To_QA]
-    condition: eq('${{ parameters.Environment }}', 'qa')
+    condition: eq('${{ parameters.Environment }}','qa')
     jobs:
       - job: Deploy_Database_QA
         displayName: 'Deploy database to employee-qa ns'
@@ -127,7 +127,7 @@ stages:
   - stage: Promote_QA_to_UAT
     displayName: 'UAT - Promote database image'
     dependsOn: []
-    condition: ${{ eq(parameters.Environment, 'uat') }}
+    condition: eq('${{ parameters.Environment }}','uat')
     jobs:
       - job: PromoteUAT
         displayName: 'UAT - Promote database image'
@@ -155,7 +155,7 @@ stages:
   - stage: Deploy_Database_UAT
     displayName: 'Deploy Database to uat env'
     dependsOn: [Promote_QA_to_UAT]
-    condition: ${{ eq(parameters.Environment, 'uat') }}
+    condition: eq('${{ parameters.Environment }}','uat')
     jobs:
       - job: Deploy_Database_UAT
         displayName: 'Deploy database to employee-uat ns'
@@ -180,7 +180,7 @@ stages:
   - stage: Promote_UAT_to_PROD
     displayName: 'promote uat to prod'
     dependsOn: []
-    condition: eq('${{ parameters.Environment }}', 'prod')
+    condition: eq('${{ parameters.Environment }}','prod')
     jobs:
       - deployment: PromotePROD
         displayName: 'Approve and promote UAT image to Prod'

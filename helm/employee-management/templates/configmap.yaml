@@ -1,4 +1,4 @@
-{{- if or (eq .Values.component "all") (eq .Values.component "config") }}
+{{- if or (eq .Values.component "database") (eq .Values.component "config") }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

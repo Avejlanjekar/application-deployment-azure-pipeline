@@ -16,7 +16,7 @@ parameters:
 
   - name: imageTag
     type: string
-    default: ""
+    default: "latest"
     displayName: Image tag to promote
 
 variables:
@@ -33,7 +33,6 @@ stages:
         displayName: Dev - Build and push backend image
         steps:
           - checkout: self
-
           - task: Docker@2
             displayName: 'Build And push Backend image'
             inputs:
@@ -44,6 +43,32 @@ stages:
               buildContext: '$(buildContext)'
               tags: |
                 $(Build.SourceVersion)
+  
+  - stage: Deploy_Backend_Dev
+    displayName: 'Deploy Backend to dev env'
+    condition: and(succeeded(),eq('${{ parameters.Environment }}','dev'))
+    dependsOn: [BuildAndPushDev]
+    jobs:
+      - job: DeployBackendDev 
+        displayName: 'Deploy Backend to employee-dev ns'
+        steps:
+          - checkout: self 
+          - script: |
+              set -e 
+
+              echo "Linting Helm chart ..."
+              helm lint ./helm/employee-management -f ./helm/employee-management/values-dev.yaml
+
+              echo "Deploying Backend to EKS"
+              helm upgrade --install employee-backend-dev ./helm/employee-management --namespace employee-dev \
+                --create-namespace \
+                -f ./helm/employee-management/values-dev.yaml \
+                --set component=backend \
+                --set backend.image.tag=$(Build.SourceVersion)
+
+              echo "waiting for backend deployment..."
+              kubectl rollout status deployment/backend-deployment --namespace employee-dev --timeout=180s
+            displayName: 'Helm deploy backend to Dev'
 
   - stage: Promote_Dev_To_QA
     displayName: 'QA - Promote backend image'
@@ -62,18 +87,46 @@ stages:
           - script: |
               set -e
 
-              if [ -z "${{ parameters.imageTag }}" ]; then
-                echo "ERROR, imageTag is required"
+              IMAGE_TAG='${{ parameters.imageTag }}'
+              if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "latest" ]; then
+                echo "ERROR: Enter the actual image tag deployed to DEV."
                 exit 1
-              fi
+              fi 
 
               docker pull $(dockerHubUsername)/employee-management-backend-dev:${{ parameters.imageTag }}
               docker tag $(dockerHubUsername)/employee-management-backend-dev:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-backend-qa:${{ parameters.imageTag }}
               docker push $(dockerHubUsername)/employee-management-backend-qa:${{ parameters.imageTag }}
             displayName: ' PRomote Dev image to QA'
 
-  - stage: PromoteQAtoUAT
+  - stage: Deploy_Backend_QA
+    displayName: 'Deploy backend to qa env'
+    dependsOn: [Promote_Dev_To_QA]
+    condition: and(succeeded(),eq('${{ parameters.Environment }}','qa'))
+    jobs:
+      - job: Deploy_backend_QA
+        displayName: 'Deploy backend to employee-qa ns'
+        steps:
+          - checkout: self
+          - script: |
+              set -e
+              
+              echo "Liniting Helm chart"
+              helm lint ./helm/employee-management -f ./helm/employee-management/values-qa.yaml 
+
+              echo "Deploying backend to EKS employee-qa ns"
+
+              helm upgrade --install employee-backend-qa ./helm/employee-management --namespace employee-qa \
+                --create-namespace \
+                -f ./helm/employee-management/values-qa.yaml \
+                --set component=backend \
+                --set backend.image.tag=${{ parameters.imageTag }}
+              kubectl rollout status deployment/backend-deployment --namespace employee-qa --timeout=180s
+            displayName: 'Helm deploy backend to QA'
+
+
+  - stage: Promote_QA_to_UAT
     displayName: 'UAT- promote backend image'
+    dependsOn: []
     condition: eq("${{ parameters.Environment }}", "uat")
     jobs:
       - job: PromoteBackend
@@ -88,8 +141,9 @@ stages:
           - script: |
               set -e 
 
-              if [ -z "${{ parameters.imageTag }}" ]; then
-                echo "ERROR, imageTag is required"
+              IMAGE_TAG='${{ parameters.imageTag }}'
+              if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "latest" ]; then
+                echo "ERROR: Enter the actual image tag deployed to QA."
                 exit 1
               fi
 
@@ -98,48 +152,83 @@ stages:
               docker push $(dockerHubUsername)/employee-management-backend-uat:${{ parameters.imageTag }}
             displayName: 'Promote QA to UAT'
 
-  - stage: ApproveProduction
-    displayName: 'Production - Manual Approval'
-    dependsOn: []
-    condition: eq('${{ parameters.Environment }}', 'prod')
+  - stage: Deploy_Backend_UAT
+    displayName: 'Deploy backend to uat env'
+    dependsOn: [Promote_QA_to_UAT]
+    condition: and(succeeded(),eq('${{ parameters.Environment }}','uat'))
     jobs:
-      - job: WaitForApproval
-        displayName: 'Approve Production promotion'
-        pool: server
-        timeoutInMinutes: 1440
+      - job: Deploy_backend_UAT
+        displayName: 'Deploy backend to employee-uat ns'
         steps:
-          - task: ManualValidation@1
-            timeoutInMinutes: 1440
-            inputs:
-              notifyUsers: ""
-              approvers: ""
-              allowApproversToApproveTheirOwnRuns: true
-              instructions: 'Review the UAT backend image and approve promotion to production.'
-              onTimeout: reject
+          - checkout: self
+          - script: |
+              set -e
+              
+              echo "Liniting Helm chart"
+              helm lint ./helm/employee-management -f ./helm/employee-management/values-uat.yaml 
 
-  - stage: PromoteUatToProd
+              echo "Deploying backend to EKS employee-uat ns"
+
+              helm upgrade --install employee-backend-uat ./helm/employee-management --namespace employee-uat \
+                --create-namespace \
+                -f ./helm/employee-management/values-uat.yaml \
+                --set component=backend \
+                --set backend.image.tag=${{ parameters.imageTag }}
+              kubectl rollout status deployment/backend-deployment --namespace employee-uat --timeout=180s
+            displayName: 'Helm deploy backend to UAT'
+
+  - stage: Promote_Uat_To_Prod
     displayName: 'Prod - promote backend image'
-    dependsOn: ApproveProduction
     condition: eq("${{ parameters.Environment }}", "prod")
     jobs:
-      - job: PromoteBackend
-        displayName: 'Prod - promote backend image'
+      - deployment: PromoteBackend
+        displayName: 'Approve and promote UAT image to Prod'
+        environment: 'employee-management-prod'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: none
+                - task: Docker@2
+                  displayName: 'login to docker hub'
+                  inputs:
+                    command: 'login'
+                    containerRegistry: 'dockerhub-service-connection'
+                - script: |
+                    set -e 
+
+                    IMAGE_TAG='${{ parameters.imageTag }}'
+                    if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "latest" ]; then
+                      echo "ERROR: Enter the actual image tag deployed to UAT."
+                      exit 1
+                    fi
+
+                    docker pull $(dockerHubUsername)/employee-management-backend-uat:${{ parameters.imageTag }}
+                    docker tag $(dockerHubUsername)/employee-management-backend-uat:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-backend-prod:${{ parameters.imageTag }}
+                    docker push $(dockerHubUsername)/employee-management-backend-prod:${{ parameters.imageTag }}
+                  displayName: 'Promote - Prod backend image'
+
+  - stage: Deploy_Backend_PROD
+    displayName: 'Deploy backend to prod env'
+    dependsOn: [Promote_Uat_To_Prod]
+    condition: and(succeeded(), eq('${{ parameters.Environment }}', 'prod'))
+    jobs:
+      - job: Deploy_backend_PROD
+        displayName: 'Deploy backend to employee-prod ns'
         steps:
-          - checkout: none
-          - task: Docker@2
-            displayName: 'login to docker hub'
-            inputs:
-              command: 'login'
-              containerRegistry: 'dockerhub-service-connection'
+          - checkout: self
           - script: |
-              set -e 
+              set -e
+              
+              echo "Liniting Helm chart"
+              helm lint ./helm/employee-management -f ./helm/employee-management/values-prod.yaml 
 
-              if [ -z "${{ parameters.imageTag }}" ]; then
-                echo "ERROR, imageTag is required"
-                exit 1
-              fi
+              echo "Deploying backend to EKS employee-prod ns"
 
-              docker pull $(dockerHubUsername)/employee-management-backend-uat:${{ parameters.imageTag }}
-              docker tag $(dockerHubUsername)/employee-management-backend-uat:${{ parameters.imageTag }} $(dockerHubUsername)/employee-management-backend-prod:${{ parameters.imageTag }}
-              docker push $(dockerHubUsername)/employee-management-backend-prod:${{ parameters.imageTag }}
-            displayName: 'Promote - Prod backend image'
+              helm upgrade --install employee-backend-prod ./helm/employee-management --namespace employee-prod \
+                --create-namespace \
+                -f ./helm/employee-management/values-prod.yaml \
+                --set component=backend \
+                --set backend.image.tag=${{ parameters.imageTag }}
+              kubectl rollout status deployment/backend-deployment --namespace employee-prod --timeout=180s
+            displayName: 'Helm deploy backend to prod'

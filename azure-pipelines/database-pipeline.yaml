@@ -90,7 +90,7 @@ stages:
 
               IMAGE_TAG='${{ parameters.imageTag }}'
               if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "latest" ]; then
-                echo "ERROR: Enter the actual image tag deployed to UAT."
+                echo "ERROR: Enter the actual image tag deployed to QA."
                 exit 1
               fi 
 
@@ -180,7 +180,7 @@ stages:
   - stage: Promote_UAT_to_PROD
     displayName: 'promote uat to prod'
     dependsOn: []
-    condition: and(succeeded(),eq('${{ parameters.Environment }}','prod'))
+    condition: eq('${{ parameters.Environment }}','prod')
     jobs:
       - deployment: PromotePROD
         displayName: 'Approve and promote UAT image to Prod'
@@ -200,7 +200,7 @@ stages:
 
                     IMAGE_TAG='${{ parameters.imageTag }}'
                     if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "latest" ]; then
-                      echo "ERROR: Enter the actual image tag deployed to UAT."
+                      echo "ERROR: Enter the actual image tag deployed to PROD."
                       exit 1
                     fi 
 

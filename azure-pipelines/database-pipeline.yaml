@@ -18,7 +18,7 @@ parameters:
   - name: imageTag
     type: string
     displayName: select Tag to promote
-    default: ""
+    default: "latest"
 
 variables:
   buildContext: './db'

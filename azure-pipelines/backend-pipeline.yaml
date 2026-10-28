@@ -27,7 +27,7 @@ stages:
   
   - stage: BuildAndPushDev
     displayName: 'Dev - Build and push backend image'
-    condition: eq('${{ parameters.Environment }}','dev')
+    condition: eq('${{ parameters.Environment }}', 'dev')
     jobs:
       - job: BuildBackend
         displayName: Dev - Build and push backend image
@@ -46,7 +46,7 @@ stages:
   
   - stage: Deploy_Backend_Dev
     displayName: 'Deploy Backend to dev env'
-    condition: and(succeeded(),eq('${{ parameters.Environment }}','dev'))
+    condition: and(succeeded(),eq('${{ parameters.Environment }}', 'dev'))
     dependsOn: [BuildAndPushDev]
     jobs:
       - job: DeployBackendDev 
@@ -73,7 +73,7 @@ stages:
   - stage: Promote_Dev_To_QA
     displayName: 'QA - Promote backend image'
     dependsOn: []
-    condition: eq('${{ parameters.Environment }}','qa')
+    condition: eq('${{ parameters.Environment }}', 'qa')
     jobs:
       - job: PromoteBackend
         displayName: 'QA - Promote backend image'
@@ -101,7 +101,7 @@ stages:
   - stage: Deploy_Backend_QA
     displayName: 'Deploy backend to qa env'
     dependsOn: [Promote_Dev_To_QA]
-    condition: and(succeeded(),eq('${{ parameters.Environment }}','qa'))
+    condition: and(succeeded(),eq('${{ parameters.Environment }}', 'qa'))
     jobs:
       - job: Deploy_backend_QA
         displayName: 'Deploy backend to employee-qa ns'
@@ -127,7 +127,7 @@ stages:
   - stage: Promote_QA_to_UAT
     displayName: 'UAT- promote backend image'
     dependsOn: []
-    condition: eq("${{ parameters.Environment }}", "uat")
+    condition: eq("${{ parameters.Environment }}", 'uat')
     jobs:
       - job: PromoteBackend
         displayName: 'UAT- promote backend image'
@@ -155,7 +155,7 @@ stages:
   - stage: Deploy_Backend_UAT
     displayName: 'Deploy backend to uat env'
     dependsOn: [Promote_QA_to_UAT]
-    condition: and(succeeded(),eq('${{ parameters.Environment }}','uat'))
+    condition: and(succeeded(),eq('${{ parameters.Environment }}', 'uat'))
     jobs:
       - job: Deploy_backend_UAT
         displayName: 'Deploy backend to employee-uat ns'
@@ -179,7 +179,7 @@ stages:
 
   - stage: Promote_Uat_To_Prod
     displayName: 'Prod - promote backend image'
-    condition: eq("${{ parameters.Environment }}", "prod")
+    condition: eq("${{ parameters.Environment }}", 'prod')
     jobs:
       - deployment: PromoteBackend
         displayName: 'Approve and promote UAT image to Prod'

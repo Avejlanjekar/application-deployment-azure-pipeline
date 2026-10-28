@@ -27,7 +27,7 @@ variables:
 stages:
   - stage: BuildAndPushDev
     displayName: 'Dev - Build and push Frontend image'
-    condition: eq('${{ parameters.Environment }}','dev')
+    condition: eq('${{ parameters.Environment }}', 'dev')
     jobs:
       - job: BuildFrontend
         displayName: 'Build frontend docker image'
@@ -46,7 +46,7 @@ stages:
 
   - stage: Deploy_Frontend_Dev
     displayName: 'Deploy frontend to dev env'
-    condition: and(succeeded(),eq('${{ parameters.Environment }}','dev'))
+    condition: and(succeeded(),eq('${{ parameters.Environment }}', 'dev'))
     dependsOn: [BuildAndPushDev]
     jobs:
       - job: DeployfrontendDev 
@@ -73,7 +73,7 @@ stages:
   - stage: PromoteDevToQA
     displayName: 'QA - Promote frontend image'
     dependsOn: []
-    condition: eq('${{ parameters.Environment }}','qa')
+    condition: eq('${{ parameters.Environment }}', 'qa')
     jobs:
       - job: PromoteFrontend
         displayName: 'promote DEV image to QA'
@@ -101,7 +101,7 @@ stages:
   - stage: Deploy_Frontend_QA
     displayName: 'Deploy frontend to qa env'
     dependsOn: [PromoteDevToQA]
-    condition: and(succeeded(),eq('${{ parameters.Environment }}','qa'))
+    condition: and(succeeded(),eq('${{ parameters.Environment }}', 'qa'))
     jobs:
       - job: Deploy_frontend_QA
         displayName: 'Deploy frontend to employee-qa ns'
@@ -126,7 +126,7 @@ stages:
   - stage: PromoteQAToUAT
     displayName: 'Uat - promote frontend image'
     dependsOn: []
-    condition: eq('${{ parameters.Environment }}','uat')
+    condition: eq('${{ parameters.Environment }}', 'uat')
     jobs:
       - job: PromoteFrontend
         displayName: 'Uat - promote frontend image'
@@ -154,7 +154,7 @@ stages:
   - stage: Deploy_Frontend_UAT
     displayName: 'Deploy frontend to uat env'
     dependsOn: [PromoteQAToUAT]
-    condition: and(succeeded(),eq('${{ parameters.Environment }}','uat'))
+    condition: and(succeeded(),eq('${{ parameters.Environment }}', 'uat'))
     jobs:
       - job: Deploy_frontend_UAT
         displayName: 'Deploy frontend to employee-uat ns'

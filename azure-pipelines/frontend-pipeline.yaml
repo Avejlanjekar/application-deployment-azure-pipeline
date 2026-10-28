@@ -18,7 +18,7 @@ parameters:
   - name: imageTag
     displayName: Image tag to promote
     type: string
-    default: ""
+    default: "latest"
 
 variables:
   buildContext: './frontend'

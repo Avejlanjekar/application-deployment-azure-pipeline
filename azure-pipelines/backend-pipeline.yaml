@@ -127,7 +127,7 @@ stages:
   - stage: Promote_QA_to_UAT
     displayName: 'UAT- promote backend image'
     dependsOn: []
-    condition: ${{ eq(parameters.Environment, 'uat') }}
+    condition: eq('${{ parameters.Environment }}', 'uat')
     jobs:
       - job: PromoteBackend
         displayName: 'UAT- promote backend image'

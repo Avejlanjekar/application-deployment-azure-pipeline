@@ -178,8 +178,8 @@ stages:
             displayName: 'Helm deploy backend to UAT'
 
   - stage: Promote_Uat_To_Prod
-    displayName: 'Prod - promote backend image'
-    condition: eq("${{ parameters.Environment }}", 'prod')
+    displayName: 'Prod promote backend image'
+    condition: eq('${{ parameters.Environment }}','prod')
     jobs:
       - deployment: PromoteBackend
         displayName: 'Approve and promote UAT image to Prod'

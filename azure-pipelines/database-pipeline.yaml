@@ -127,7 +127,7 @@ stages:
   - stage: Promote_QA_to_UAT
     displayName: 'UAT - Promote database image'
     dependsOn: []
-    condition: eq('${{ parameters.Environment }}', 'uat')
+    condition: ${{ eq(parameters.Environment, 'uat') }}
     jobs:
       - job: PromoteUAT
         displayName: 'UAT - Promote database image'
@@ -155,7 +155,7 @@ stages:
   - stage: Deploy_Database_UAT
     displayName: 'Deploy Database to uat env'
     dependsOn: [Promote_QA_to_UAT]
-    condition: eq('${{ parameters.Environment }}', 'uat')
+    condition: ${{ eq(parameters.Environment, 'uat') }}
     jobs:
       - job: Deploy_Database_UAT
         displayName: 'Deploy database to employee-uat ns'

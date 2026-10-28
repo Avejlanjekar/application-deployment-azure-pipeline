@@ -43,6 +43,20 @@ stages:
               awsSubCommand: 'get-caller-identity'
               awsArguments: ''
 
+  - stage: Verify_Helm_Chart
+    displayName: 'Verify Helm chart files'
+    dependsOn: []
+    jobs:
+      - job: VerifyChart
+        steps:
+          - checkout: self
+          - script: |
+              echo "Repository directory:"
+              pwd
+              echo "Helm chart files:"
+              ls -la helm/employee-management/
+            displayName: 'List Helm chart files'
+
   # - stage: Build_And_Push_Dev
   #   displayName: 'Build and push database docker image to dev'
   #   condition: eq('${{ parameters.Environment }}','dev')

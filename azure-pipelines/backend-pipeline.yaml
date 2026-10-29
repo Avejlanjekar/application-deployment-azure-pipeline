@@ -211,7 +211,7 @@ stages:
   - stage: Deploy_Backend_PROD
     displayName: 'Deploy backend to prod env'
     dependsOn: [Promote_Uat_To_Prod]
-    condition: and(succeeded(), ${{ eq(parameters.Environment, 'prod') }})
+    condition: and(succeeded(), eq('${{ parameters.Environment }}', 'prod'))
     jobs:
       - job: Deploy_backend_PROD
         displayName: 'Deploy backend to employee-prod ns'

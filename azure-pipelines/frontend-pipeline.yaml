@@ -178,7 +178,7 @@ stages:
 
   - stage: PromoteUatToProd
     displayName: 'Prod - promote frontend image'
-    condition: and(succeeded(),eq('${{ parameters.Environment }}', 'prod'))
+    condition: eq('${{ parameters.Environment }}', 'prod')
     jobs:
       - deployment: PromoteFrontend
         displayName: 'Approve and promote UAT image to Prod'

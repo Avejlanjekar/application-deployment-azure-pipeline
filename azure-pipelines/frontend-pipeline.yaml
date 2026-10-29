@@ -210,7 +210,7 @@ stages:
   - stage: Deploy_Frontend_PROD
     displayName: 'Deploy frontend to prod env'
     dependsOn: [PromoteUatToProd]
-    condition: and(succeeded(), eq('${{ parameters.Environment }}', 'prod'))
+    condition: eq('${{ parameters.Environment }}', 'prod')
     jobs:
       - job: Deploy_frontend_PROD
         displayName: 'Deploy frontend to employee-prod ns'

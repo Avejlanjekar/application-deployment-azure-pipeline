@@ -20,8 +20,7 @@ parameters:
     displayName: Image tag to promote
 
 variables:
-  buildContext: './backend'
-  dockerHubUsername: 'avejlanjekar45'
+  - group: employee-management-config
 
 stages:
   
@@ -37,10 +36,10 @@ stages:
             displayName: 'Build And push Backend image'
             inputs:
               containerRegistry: 'dockerhub-service-connection'
-              repository: 'avejlanjekar45/employee-management-backend-dev'
+              repository: '$(dockerHubUsername)/employee-management-backend-dev'
               command: buildAndPush
-              Dockerfile: '$(buildContext)/Dockerfile'
-              buildContext: '$(buildContext)'
+              Dockerfile: '$(backendBuildContext)/Dockerfile'
+              buildContext: '$(backendBuildContext)'
               tags: |
                 $(Build.SourceVersion)
   
@@ -60,14 +59,14 @@ stages:
               helm lint ./helm/employee-management -f ./helm/employee-management/values-dev.yaml
 
               echo "Deploying Backend to EKS"
-              helm upgrade --install employee-backend-dev ./helm/employee-management --namespace employee-dev \
+              helm upgrade --install employee-backend-dev ./helm/employee-management --namespace $(devNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-dev.yaml \
                 --set component=backend \
                 --set backend.image.tag=$(Build.SourceVersion)
 
               echo "waiting for backend deployment..."
-              kubectl rollout status deployment/backend-deployment --namespace employee-dev --timeout=180s
+              kubectl rollout status deployment/backend-deployment --namespace $(devNamespace) --timeout=180s
             displayName: 'Helm deploy backend to Dev'
 
   - stage: Promote_Dev_To_QA
@@ -115,12 +114,12 @@ stages:
 
               echo "Deploying backend to EKS employee-qa ns"
 
-              helm upgrade --install employee-backend-qa ./helm/employee-management --namespace employee-qa \
+              helm upgrade --install employee-backend-qa ./helm/employee-management --namespace $(qaNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-qa.yaml \
                 --set component=backend \
                 --set backend.image.tag=${{ parameters.imageTag }}
-              kubectl rollout status deployment/backend-deployment --namespace employee-qa --timeout=180s
+              kubectl rollout status deployment/backend-deployment --namespace $(qaNamespace) --timeout=180s
             displayName: 'Helm deploy backend to QA'
 
 
@@ -169,12 +168,12 @@ stages:
 
               echo "Deploying backend to EKS employee-uat ns"
 
-              helm upgrade --install employee-backend-uat ./helm/employee-management --namespace employee-uat \
+              helm upgrade --install employee-backend-uat ./helm/employee-management --namespace $(uatNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-uat.yaml \
                 --set component=backend \
                 --set backend.image.tag=${{ parameters.imageTag }}
-              kubectl rollout status deployment/backend-deployment --namespace employee-uat --timeout=180s
+              kubectl rollout status deployment/backend-deployment --namespace $(uatNamespace) --timeout=180s
             displayName: 'Helm deploy backend to UAT'
 
   - stage: Promote_Uat_To_Prod
@@ -225,10 +224,10 @@ stages:
 
               echo "Deploying backend to EKS employee-prod ns"
 
-              helm upgrade --install employee-backend-prod ./helm/employee-management --namespace employee-prod \
+              helm upgrade --install employee-backend-prod ./helm/employee-management --namespace $(prodNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-prod.yaml \
                 --set component=backend \
                 --set backend.image.tag=${{ parameters.imageTag }}
-              kubectl rollout status deployment/backend-deployment --namespace employee-prod --timeout=180s
+              kubectl rollout status deployment/backend-deployment --namespace $(prodNamespace) --timeout=180s
             displayName: 'Helm deploy backend to prod'

@@ -21,9 +21,7 @@ parameters:
     default: "latest"
 
 variables:
-  buildContext: './db'
-  dockerHubUsername: 'avejlanjekar45'
-
+  - group: employee-management-config
 
 stages:
   - stage: Build_And_Push_Dev
@@ -38,10 +36,10 @@ stages:
             displayName: 'Build and push DB docker image'
             inputs:
               containerRegistry: 'dockerhub-service-connection'
-              repository: 'avejlanjekar45/employee-management-database-dev'
+              repository: '$(dockerHubUsername)/employee-management-database-dev'
               command: buildAndPush
-              Dockerfile: '$(buildContext)/Dockerfile'
-              buildContext: '$(buildContext)'
+              Dockerfile: '$(databaseBuildContext)/Dockerfile'
+              buildContext: '$(databaseBuildContext)'
               tags: |
                 $(Build.SourceVersion)
 
@@ -61,14 +59,14 @@ stages:
               helm lint ./helm/employee-management -f ./helm/employee-management/values-dev.yaml
 
               echo "Deploying database to EKS"
-              helm upgrade --install employee-database-dev ./helm/employee-management --namespace employee-dev \
+              helm upgrade --install employee-database-dev ./helm/employee-management --namespace $(devNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-dev.yaml \
                 --set component=database \
                 --set database.image.tag=$(Build.SourceVersion)
 
               echo "waiting for database deployment..."
-              kubectl rollout status deployment/mysql-deployment --namespace employee-dev --timeout=180s
+              kubectl rollout status deployment/mysql-deployment --namespace $(devNamespace) --timeout=180s
             displayName: 'Helm deploy database to Dev'
 
   - stage: Promote_Dev_To_QA
@@ -116,12 +114,12 @@ stages:
 
               echo "Deploying database to EKS employee-qa ns"
 
-              helm upgrade --install employee-database-qa ./helm/employee-management --namespace employee-qa \
+              helm upgrade --install employee-database-qa ./helm/employee-management --namespace $(qaNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-qa.yaml \
                 --set component=database \
                 --set database.image.tag=${{ parameters.imageTag }}
-              kubectl rollout status deployment/mysql-deployment --namespace employee-qa --timeout=180s
+              kubectl rollout status deployment/mysql-deployment --namespace $(qaNamespace) --timeout=180s
             displayName: 'Helm deploy database to QA'
 
   - stage: Promote_QA_to_UAT
@@ -169,12 +167,12 @@ stages:
 
               echo "Deploying database to EKS employee-uat ns"
 
-              helm upgrade --install employee-database-uat ./helm/employee-management --namespace employee-uat \
+              helm upgrade --install employee-database-uat ./helm/employee-management --namespace $(uatNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-uat.yaml \
                 --set component=database \
                 --set database.image.tag=${{ parameters.imageTag }}
-              kubectl rollout status deployment/mysql-deployment --namespace employee-uat --timeout=180s
+              kubectl rollout status deployment/mysql-deployment --namespace $(uatNamespace) --timeout=180s
             displayName: 'Helm deploy database to UAT'
 
   - stage: Promote_UAT_to_PROD
@@ -226,10 +224,10 @@ stages:
 
               echo "Deploying database to EKS employee-prod ns"
 
-              helm upgrade --install employee-database-prod ./helm/employee-management --namespace employee-prod \
+              helm upgrade --install employee-database-prod ./helm/employee-management --namespace $(prodNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-prod.yaml \
                 --set component=database \
                 --set database.image.tag=${{ parameters.imageTag }}
-              kubectl rollout status deployment/mysql-deployment --namespace employee-prod --timeout=180s
+              kubectl rollout status deployment/mysql-deployment --namespace $(prodNamespace) --timeout=180s
             displayName: 'Helm deploy database to prod'

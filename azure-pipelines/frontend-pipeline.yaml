@@ -21,8 +21,7 @@ parameters:
     default: "latest"
 
 variables:
-  buildContext: './frontend'
-  dockerHubUsername: 'avejlanjekar45'
+  - group: employee-management-config
 
 stages:
   - stage: BuildAndPushDev
@@ -37,10 +36,10 @@ stages:
             displayName: 'Build And Push Frontend Image'
             inputs:
               containerRegistry: 'dockerhub-service-connection'
-              repository: 'avejlanjekar45/employee-management-frontend-dev'
+              repository: '$(dockerHubUsername)/employee-management-frontend-dev'
               command: 'buildAndPush'
-              Dockerfile: '$(buildContext)/Dockerfile'
-              buildContext: '$(buildContext)'
+              Dockerfile: '$(frontendBuildContext)/Dockerfile'
+              buildContext: '$(frontendBuildContext)'
               tags: |
                 $(Build.SourceVersion)
 
@@ -60,14 +59,14 @@ stages:
               helm lint ./helm/employee-management -f ./helm/employee-management/values-dev.yaml
 
               echo "Deploying frontend to EKS"
-              helm upgrade --install employee-frontend-dev ./helm/employee-management --namespace employee-dev \
+              helm upgrade --install employee-frontend-dev ./helm/employee-management --namespace $(devNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-dev.yaml \
                 --set component=frontend \
                 --set frontend.image.tag=$(Build.SourceVersion)
 
               echo "waiting for frontend deployment..."
-              kubectl rollout status deployment/frontend-deployment --namespace employee-dev --timeout=180s
+              kubectl rollout status deployment/frontend-deployment --namespace $(devNamespace) --timeout=180s
             displayName: 'Helm deploy frontend to Dev'
 
   - stage: PromoteDevToQA
@@ -115,12 +114,12 @@ stages:
 
               echo "Deploying frontend to EKS employee-qa ns"
 
-              helm upgrade --install employee-frontend-qa ./helm/employee-management --namespace employee-qa \
+              helm upgrade --install employee-frontend-qa ./helm/employee-management --namespace $(qaNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-qa.yaml \
                 --set component=frontend \
                 --set frontend.image.tag=${{ parameters.imageTag }}
-              kubectl rollout status deployment/frontend-deployment --namespace employee-qa --timeout=180s
+              kubectl rollout status deployment/frontend-deployment --namespace $(qaNamespace) --timeout=180s
             displayName: 'Helm deploy frontend to QA'
 
   - stage: PromoteQAToUAT
@@ -168,12 +167,12 @@ stages:
 
               echo "Deploying frontend to EKS employee-uat ns"
 
-              helm upgrade --install employee-frontend-uat ./helm/employee-management --namespace employee-uat \
+              helm upgrade --install employee-frontend-uat ./helm/employee-management --namespace $(uatNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-uat.yaml \
                 --set component=frontend \
                 --set frontend.image.tag=${{ parameters.imageTag }}
-              kubectl rollout status deployment/frontend-deployment --namespace employee-uat --timeout=180s
+              kubectl rollout status deployment/frontend-deployment --namespace $(uatNamespace) --timeout=180s
             displayName: 'Helm deploy frontend to UAT'
 
   - stage: PromoteUatToProd
@@ -224,10 +223,10 @@ stages:
 
               echo "Deploying frontend to EKS employee-prod ns"
 
-              helm upgrade --install employee-frontend-prod ./helm/employee-management --namespace employee-prod \
+              helm upgrade --install employee-frontend-prod ./helm/employee-management --namespace $(prodNamespace) \
                 --create-namespace \
                 -f ./helm/employee-management/values-prod.yaml \
                 --set component=frontend \
                 --set frontend.image.tag=${{ parameters.imageTag }}
-              kubectl rollout status deployment/frontend-deployment --namespace employee-prod --timeout=180s
+              kubectl rollout status deployment/frontend-deployment --namespace $(prodNamespace) --timeout=180s
             displayName: 'Helm deploy frontend to prod'
